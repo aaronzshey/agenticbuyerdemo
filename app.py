@@ -9,16 +9,16 @@ st.title("Agentic Buyer Demo")
 st.markdown("---")
 
 # 2. Sidebar: Authentication & Environmental Control
-api_key_input = st.sidebar.text_input("Gemini API Key", type="password", value=os.environ.get("GEMINI_API_KEY", ""))
+api_key_input = st.sidebar.text_input("API Key (Optional)", type="password", value=os.environ.get("GEMINI_API_KEY", ""))
 
-if not api_key_input:
-    st.sidebar.warning("Please enter your Gemini API Key to run the simulation.")
-    st.stop()
+if api_key_input:
+    st.sidebar.success("Live mode activated")
+    client = genai.Client(api_key=api_key_input)
+    is_demo_mode = False
+else:
+    st.sidebar.warning("Live mode inactive")
+    is_demo_mode = True
 
-# Initialize the modern Google GenAI Client
-client = genai.Client(api_key=api_key_input)
-
-# 3. UI Layout: Two-Column Control Panel
 col1, col2 = st.columns(2)
 
 with col1:
@@ -51,6 +51,34 @@ PERSONAS = {
     agent_3_name: agent_3_prompt
 }
 
+BAKED_RESPONSES = {
+    "The Clout Chaser": """
+    ### 🏆 Recommendation: Audemars Piguet Royal Oak
+    
+    **Why I choose this:** The Royal Oak is an absolute cultural monolith. From across a dimly lit room in Miami or a restaurant in SF, *everyone* recognizes the octagonal bezel and the tapisserie dial. It screams liquidity and cultural relevance. Jay-Z talks about it. It has the hype premium.
+    
+    **Flaws of the VC Overseas:** The Vacheron Constantin Overseas is a beautiful 'if you know, you know' watch, but that's exactly the problem—*not enough people know.* If I'm spending $30k+, I don't want to explain horological history to someone; I want them to look at my wrist and instantly know where I sit on the social ladder. The Overseas is too quiet.
+    """,
+    
+    "The Family Man": """
+    ### 👨‍👩‍👧‍👦 Recommendation: Vacheron Constantin Overseas
+    
+    **Why I choose this:** The Overseas is the ultimate elegant daily driver. It features an incredible quick-change bracelet system (swapping from steel to rubber to alligator leather in 5 seconds), meaning I can wear it to the beach with the kids and then straight to a formal dinner. It’s Holy Trinity watchmaking without the obnoxious 'look at me' vanity. It represents quiet, generational wealth that I will happily pass down to my son.
+    
+    **Flaws of the Royal Oak:** The Royal Oak has become a magnet for crypto flippers, influencers, and aggressive modern clout. It’s an scratch-magnet that flashes too brightly under a cuff. It paints a target on your back and lacks the understated dignity required for everyday family life.
+    """,
+    
+    "The Yuppie": """
+    ### 📈 Recommendation: Vacheron Constantin Overseas (Ref. 4500V)
+    
+    **Why I choose this:** From a pure horological perspective, the in-house Calibre 5100 movement with the Hallmark of Geneva finishing completely out-classes modern mass-produced AP movements. The Maltese cross integration into the bezel and bracelet links shows highly disciplined, geometric industrial design. It signals that I understand independent execution and mechanical heritage.
+    
+    **Flaws of the Royal Oak:** The Royal Oak is a victim of its own success. It hasn't fundamentally changed its cognitive footprint since Gérald Genta designed it in 1972, and the market is saturated with people who bought it purely because of an Instagram algorithm. It lacks intellectual differentiation.
+    """
+}
+
+st.markdown("---")
+
 st.markdown("---")
 
 # 4. Simulation Execution Layer
@@ -64,32 +92,38 @@ if st.button("Query Agents", type="primary"):
         with tabs[index]:
             st.subheader(f"Response: {name}")
             
-            # System instruction assembly using the new SDK configuration framework
-            system_instruction = f"{prompt} Do not break character. Do not state you are an AI. Speak directly from your worldview."
-            
-            user_prompt = f"""
-            You are evaluating two specific options in the context of the {industry} market:
-            1. {choice_a}
-            2. {choice_b}
+            if is_demo_mode:
+                with st.spinner("Fetching pre-computed responses..."):
+                    fallback_text = f"### 🔵 Sandbox Mode Active\nTo analyze a customized run for **{choice_a}** vs **{choice_b}**, please enter a live Gemini API Key in the sidebar. In Sandbox mode, we showcase the default pre-baked evaluation architecture."
+                    output_text = BAKED_RESPONSES.get(name, fallback_text)
+                    st.markdown(output_text)
+            else: 
+                # System instruction assembly using the new SDK configuration framework
+                system_instruction = f"{prompt} Do not break character. Do not state you are an AI. Speak directly from your worldview."
+                
+                user_prompt = f"""
+                You are evaluating two specific options in the context of the {industry} market:
+                1. {choice_a}
+                2. {choice_b}
 
-            Based strictly on your core psychological traits, biases, and values, which option do you personally prefer and recommend? 
-            Provide a short five-point explanation, including:
-            - The specific brand proof points that appeal directly to you.
-            - The structural flaws or psychological alignment failures of the opposing option.
-            
-            Be authentic, subjective, and fiercely opinionated, but above all be brief.
-            """
-            
-            with st.spinner(f"Querying {name}..."):
-                try:
-                    response = client.models.generate_content(
-                        model='gemini-2.5-flash',
-                        contents=user_prompt,
-                        config=types.GenerateContentConfig(
-                            system_instruction=system_instruction,
-                            temperature=0.4
+                Based strictly on your core psychological traits, biases, and values, which option do you personally prefer and recommend? 
+                Provide a short five-point explanation, including:
+                - The specific brand proof points that appeal directly to you.
+                - The structural flaws or psychological alignment failures of the opposing option.
+                
+                Be authentic, subjective, and fiercely opinionated, but above all be brief.
+                """
+                
+                with st.spinner(f"Querying {name}..."):
+                    try:
+                        response = client.models.generate_content(
+                            model='gemini-2.5-flash',
+                            contents=user_prompt,
+                            config=types.GenerateContentConfig(
+                                system_instruction=system_instruction,
+                                temperature=0.4
+                            )
                         )
-                    )
-                    st.markdown(response.text)
-                except Exception as e:
-                    st.error(f"Execution Failure on {name}: {str(e)}")
+                        st.markdown(response.text)
+                    except Exception as e:
+                        st.error(f"Execution Failure on {name}: {str(e)}")
